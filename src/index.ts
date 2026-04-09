@@ -2243,28 +2243,28 @@ COMBINING SELECTORS: Chain selectors for AND logic. Example: Part.Tagged[Anchore
 );
 
 server.registerTool(
-  "search-scripts-sources",
+  "script-grep",
   {
-    title: "Search across all scripts in the game",
+    title: "Grep across all scripts in the game",
     description:
-      'Search across all scripts in the game by their source code. IMPORTANT: If a script instance has already been garbage collected, a "<ScriptProxy: DebugId>" string will be returned instead of the script instance path.',
+      'Search across all decompiled scripts in the game using standard regex syntax (Perl/PCRE2). Supports patterns like \\bRemoteEvent\\b, \\w+Service, function\\s+\\w+, lookaheads, alternation (foo|bar), etc. Use the literal flag for plain string matching. IMPORTANT: If a script instance has already been garbage collected, a "<ScriptProxy: DebugId>" string will be returned instead of the script instance path.',
     inputSchema: z.object({
       query: z
         .string()
         .describe(
-          "The string to search, compatible with Luau string.find() pattern matching. IMPORTANT: using | in the query will be treated as a logical OR, use & for logical AND, and use \\\\\\\\ for escaping (e.g., \\\\\\\\|)."
+          "The search pattern. Supports standard regex syntax (Perl/PCRE2): \\d, \\w, \\s, \\b, character classes [a-z], alternation (foo|bar), quantifiers (+, *, ?), groups, lookaheads, etc. Use the literal flag for exact string matching."
         ),
       limit: z
         .number()
         .describe(
-          "Maximum number of results to return (default: 50, to avoid overwhelming output)"
+          "Maximum number of scripts to return results from (default: 50)"
         )
         .optional()
         .default(50),
       contextLines: z
         .number()
         .describe(
-          "Number of lines of context to return before and after the matching line (default: 2)"
+          "Number of lines of context to show before and after each match (default: 2)"
         )
         .optional()
         .default(2),
@@ -2278,26 +2278,34 @@ server.registerTool(
       maxResults: z
         .number()
         .describe(
-          "Maximum total number of matches across ALL scripts (default: unlimited). Use this to cap total matches, e.g. maxResults=1 to find just the first match across all scripts."
+          "Maximum total number of matches across ALL scripts (default: unlimited). Use this to cap total matches, e.g. maxResults=1 to find just the first match."
         )
         .optional(),
       literal: z
         .boolean()
         .describe(
-          "When true, treats the query as a plain literal string — no | (OR) or & (AND) splitting, no pattern matching. Equivalent to ripgrep's -F flag. (default: false)"
+          "When true, treats the query as a plain literal string — no regex interpretation. Equivalent to grep -F / ripgrep -F. (default: false)"
         )
         .optional()
         .default(false),
+      caseSensitive: z
+        .boolean()
+        .describe(
+          "When false, matches case-insensitively. Equivalent to grep -i. (default: true)"
+        )
+        .optional()
+        .default(true),
     }),
   },
-  async ({ query, limit, contextLines, maxMatchesPerScript, maxResults, literal }) => {
-    const toolCallId = SendArbitraryDataToClient("search-scripts-sources", {
+  async ({ query, limit, contextLines, maxMatchesPerScript, maxResults, literal, caseSensitive }) => {
+    const toolCallId = SendArbitraryDataToClient("script-grep", {
       query,
       limit,
       contextLines,
       maxMatchesPerScript,
       maxResults,
       literal,
+      caseSensitive,
     }, undefined, activeClientId);
 
     if (toolCallId === null) {
@@ -2318,7 +2326,7 @@ server.registerTool(
           {
             type: "text",
             text:
-              "Failed to search scripts (error occured? Response: " +
+              "Failed to grep scripts (error occured? Response: " +
               JSON.stringify(response) +
               ")",
           },
