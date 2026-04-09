@@ -1,113 +1,69 @@
+<p align="center">
+  <img src="docs/banner.svg" alt="Roblox Executor MCP" width="900"/>
+</p>
+
 # Roblox Executor MCP Server
 
-An MCP server that bridges LLMs and a running Roblox Game Client — execute code, inspect scripts, spy on remotes, and more.
+An MCP server that allows Agents to interact with a running Roblox game client — execute code, inspect scripts, spy on remotes, and more.
 
 ## Features
 
-- **Code Execution & Data Querying** — Run Lua and fetch data from the game client.
-- **Script Inspection** — Decompile LocalScripts/ModuleScripts and search across sources.
-- **Instance Search** — CSS-like selectors via `QueryDescendants` and hierarchy trees.
-- **Remote Spy** — [Cobalt](https://github.com/notpoiu/cobalt) integration to intercept, log, block, and ignore Remotes/Bindables.
-- **Multi-Client** — Connect multiple Roblox clients simultaneously; target each by `clientId`. Dashboard at `http://localhost:16384/`.
-- **Screenshot** — Capture Roblox window screenshots (Windows only); relayed to the primary host when running as a secondary.
-- **Primary / Secondary** — Multiple MCP instances auto-coordinate; secondaries relay through the primary with automatic promotion. Supports remote primaries via `--baseurl`.
+- **Code Execution** — Run Lua code and fetch data from the game client.
+- **Script Inspection** — Decompile scripts and search across all sources.
+- **Instance Search** — CSS-like selectors and hierarchy trees.
+- **Remote Spy** — Intercept, log, block, and ignore Remotes/Bindables via [Cobalt](https://github.com/notpoiu/cobalt).
+- **GUI Interaction** — Click buttons and type into text boxes.
+- **Screenshot** — Capture Roblox window screenshots (Windows only).
+- **Multi-Client** — Connect multiple Roblox clients at once. Dashboard at `http://localhost:16384/`.
+- **Primary / Secondary** — Multiple MCP instances auto-coordinate with automatic promotion. Supports remote relaying via `--baseurl`. See [Advanced](docs/advanced.md).
 
 ## Prerequisites
 
-- A Roblox executor supporting `loadstring`, `request`, and (preferably) `WebSocket`.
-- Node.js ≥ 18.
+- **Node.js** ≥ 18
+- **A Roblox executor** that supports `loadstring`, `request`, and (preferably) `WebSocket`
 
 ## Quick Start
 
+### 1. Build the server
+
 ```bash
+git clone https://github.com/notpoiu/roblox-executor-mcp.git
+cd roblox-executor-mcp
 pnpm install && pnpm run build
 ```
 
-### Add to your AI Client
+### 2. Add to your AI client
 
-**Cursor** — Settings > Features > MCP > Add: name `roblox-executor-mcp`, type `command`, command `node /path/to/MCPServer/dist/index.js`.
+Follow the setup guide for your client:
 
-**Claude Desktop / Antigravity** — Add to your JSON config:
-```json
-{
-  "mcpServers": {
-    "roblox-executor-mcp": {
-      "command": "node",
-      "args": ["/path/to/MCPServer/dist/index.js"]
-    }
-  }
-}
-```
+| Client | Guide |
+|---|---|
+| Cursor | [Setup Guide](docs/setup-cursor.md) |
+| Claude Desktop | [Setup Guide](docs/setup-claude-desktop.md) |
+| Claude Code | [Setup Guide](docs/setup-claude-code.md) |
+| Codex CLI | [Setup Guide](docs/setup-codex.md) |
+| Windsurf | [Setup Guide](docs/setup-windsurf.md) |
+| Antigravity | [Setup Guide](docs/setup-antigravity.md) |
 
-**Codex** — Settings > MCP Settings > Add server: name `roblox-executor-mcp`, type `STDIO`, command `node`, args `/path/to/MCPServer/dist/index.js`.
-
-### Connect from Roblox
+### 3. Connect from Roblox
 
 Run `connector.luau` in your executor, or use the quick loader:
+
 ```lua
--- getgenv().BridgeURL = "10.0.0.4:16384" (defaults to localhost, change if needed)
--- getgenv().DisableWebSocket = true
--- getgenv().DisableInitialScriptDecompMapping = true (disables script decompilation untill you run a script related tool)
 loadstring(game:HttpGet("https://raw.githubusercontent.com/notpoiu/roblox-executor-mcp/refs/heads/main/connector.luau"))()
 ```
 
-## Tools
-
-| Category | Tool | Description |
-|---|---|---|
-| **Execution** | `execute` | Run Lua code (actions) |
-| | `execute-file` | Run a local `.luau`/`.lua` file |
-| | `get-data-by-code` | Run Lua code and return results |
-| **Scripts** | `get-script-content` | Decompile a script's source |
-| | `search-scripts-sources` | Search all scripts by source content |
-| **Introspection** | `list-clients` | List connected clients |
-| | `get-console-output` | Retrieve console logs |
-| | `search-instances` | CSS-like instance search |
-| | `get-descendants-tree` | Instance hierarchy tree |
-| | `get-game-info` | Game metadata |
-| **Remote Spy** | `ensure-remote-spy` | Load Cobalt (required first) |
-| | `get-remote-spy-logs` | Get captured remote call logs |
-| | `clear-remote-spy-logs` | Clear all logs |
-| | `block-remote` | Block/unblock a remote |
-| | `ignore-remote` | Ignore/unignore a remote |
-| **Screenshot** | `list-roblox-windows` | List visible Roblox windows and their PIDs |
-| | `screenshot-window` | Capture a Roblox window by PID (Windows only) |
-| **GUI Interactions** |`click-button` | Simulate a button click on a Textbutton/ImageButtton |
-| | `type-text-box` | Interact with a textbox |
-
-## Primary / Secondary Mode
-
-By default the server starts as a **primary** on port `16384`. If that port is already taken it automatically becomes a **secondary** that relays all tool calls through the primary. When the primary disconnects, a secondary promotes itself.
-
-### Remote primary (`--baseurl`)
-
-Connect this instance as a secondary to a **remote** primary — useful when your AI client is on macOS/Linux but Roblox is on a Windows machine:
-
-```json
-{
-  "mcpServers": {
-    "roblox-executor-mcp": {
-      "command": "node",
-      "args": [
-        "/path/to/MCPServer/dist/index.js",
-        "--baseurl",
-        "http://<primary-host>:16384"
-      ]
-    }
-  }
-}
+**Optional settings** (set before the `loadstring`):
+```lua
+getgenv().BridgeURL = "10.0.0.4:16384"                  -- default: localhost:16384
+getgenv().DisableWebSocket = true                        -- force HTTP polling
+getgenv().DisableInitialScriptDecompMapping = true       -- skip initial decompilation
 ```
 
-| Scenario | Result |
-|---|---|
-| `--baseurl` set, remote reachable | Runs as secondary relay to that host |
-| `--baseurl` set, remote **unreachable** | Falls back to starting as primary locally |
-| `--baseurl` set, remote unreachable **and** local port taken | Becomes secondary to the local primary |
-| No `--baseurl` | Default: primary, or localhost secondary if port is in use |
+## Security
 
-> **Note:** `screenshot-window` and `list-roblox-windows` are forwarded over HTTP to the primary, so a Mac secondary can capture windows running on a Windows primary.
+> **This server allows arbitrary code execution.** Only use with AI clients you trust. Port `16384` has no authentication — **never expose it to the internet.** For cross-machine setups, use a local network, VPN, or SSH tunnel. See [Advanced](docs/advanced.md) for details.
 
-## Security Note
+## License
 
-- **Arbitrary code execution** — Only use with trusted LLMs; any connected AI client can run code in your Roblox session.
-- **Do not expose the HTTP server to the internet.** Port `16384` is unauthenticated. Anyone who can reach it can execute code in your game, take screenshots of your screen, and read client data. If you need cross-machine access (e.g. `--baseurl`), use a **local network / VPN** or an **SSH tunnel** — never forward the port through a public router or cloud firewall.
+[MIT](LICENSE)
